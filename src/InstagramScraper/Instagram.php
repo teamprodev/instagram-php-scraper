@@ -1675,6 +1675,7 @@ class Instagram
     {
         $index = 0;
         $medias = [];
+        $medias_arr = [];
         $hasNext = true;
         while ($index < $quantity && $hasNext) {
             $response = Request::get(Endpoints::getMediasJsonByLocationIdLink($facebookLocationId, $offset),
@@ -1688,27 +1689,24 @@ class Instagram
             }
             $this->parseCookies($response->headers);
             $arr = $this->decodeRawBodyToJson($response->raw_body);
-            $nodes = $arr['graphql']['location']['edge_location_to_media']['edges'];
 
-            $slug = $arr['graphql']['location']['slug'];
-            $name = $arr['graphql']['location']['name'];
+            $nodes = $arr['native_location_data']['ranked']['sections'];
 
-            foreach ($nodes as $mediaArray) {
-                if ($index === $quantity) {
-                    return $medias;
+            foreach ($nodes as $item) {
+                if ($item['feed_type'] === 'media') {
+                    $medias = $item['layout_content']['medias'];
+                } else {
+                    $medias = $item['layout_content']['fill_items'];
                 }
-                $medias[] = Media::create($mediaArray['node']);
-                $medias[$index] -> setLocationName($name);
-                $medias[$index] -> setLocationSlug($slug);
-                $index++;
+
+                foreach ($medias as $media) {
+                    $medias_arr[] = Media::create($media['media']);
+                }
             }
-            if (empty($nodes)) {
-                return $medias;
-            }
-            $hasNext = $arr['graphql']['location']['edge_location_to_media']['page_info']['has_next_page'];
-            $offset = $arr['graphql']['location']['edge_location_to_media']['page_info']['end_cursor'];
+
         }
-        return $medias;
+
+        return $medias_arr;
     }
 
     /**
